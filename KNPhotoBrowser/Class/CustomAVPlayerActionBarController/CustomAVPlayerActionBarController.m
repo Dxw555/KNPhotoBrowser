@@ -202,13 +202,13 @@
     KNPhotoBrowser *photoBrowser = [[KNPhotoBrowser alloc] init];
     
     /// custom ActionBar must set value after `KNPhotoBrowser init`
-    [KNPhotoBrowserConfig share].isNeedCustomActionBar = true;
+//    [KNPhotoBrowserConfig share].isNeedCustomActionBar = true;
     
     photoBrowser.delegate = self;
     photoBrowser.itemsArr = [self.itemsArr copy];
     photoBrowser.placeHolderColor = UIColor.lightTextColor;
     photoBrowser.currentIndex = tap.view.tag;
-    photoBrowser.isSoloAmbient = true;
+//    photoBrowser.isSoloAmbient = true;
     photoBrowser.isNeedPageNumView = true;
     photoBrowser.isNeedRightTopBtn = true;
     photoBrowser.isNeedLongPress = true;

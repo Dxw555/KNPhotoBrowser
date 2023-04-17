@@ -108,11 +108,11 @@
 - (void)imgItemDidClick:(UITapGestureRecognizer *)tap{
     KNPhotoBrowser *photoBrowser = [[KNPhotoBrowser alloc] init];
     
-    [photoBrowser createOverlayViewArrOnTopView:@[self.scrollView] animated:true followAnimated:true];
+//    [photoBrowser createOverlayViewArrOnTopView:@[self.scrollView] animated:true followAnimated:true];
     
     UIView *tempView = [[UIView alloc] initWithFrame:CGRectMake((self.view.frame.size.width - 90) * 0.5, 100, 90, 30)];
     tempView.backgroundColor = UIColor.lightGrayColor;
-    [photoBrowser createOverlayViewArrOnTopView:@[tempView] animated:false followAnimated:true];
+//    [photoBrowser createOverlayViewArrOnTopView:@[tempView] animated:false followAnimated:true];
     _tempView = tempView;
     
     photoBrowser.itemsArr = [self.itemsArr mutableCopy];
@@ -123,7 +123,7 @@
     photoBrowser.isNeedRightTopBtn = true;
     photoBrowser.isNeedLongPress = true;
     photoBrowser.isNeedPanGesture = true;
-    photoBrowser.isNeedPageControlTarget = true;
+//    photoBrowser.isNeedPageControlTarget = true;
     [photoBrowser present];
 }
 

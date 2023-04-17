@@ -99,7 +99,7 @@
     photoBrowser.itemsArr = [_itemsArr copy];
     photoBrowser.currentIndex = tap.view.tag;
     photoBrowser.isNeedPageControl = true;
-    photoBrowser.isNeedPageControlTarget = true;
+//    photoBrowser.isNeedPageControlTarget = true;
     photoBrowser.isNeedRightTopBtn = true;
     photoBrowser.isNeedPageNumView = true;
     [photoBrowser setDelegate:self];

@@ -189,16 +189,16 @@
     
     KNPhotoBrowser *photoBrowser = [[KNPhotoBrowser alloc] init];
     
-    photoBrowser.isGoingToPush = true;
-    photoBrowser.sourceVcNavigationBarHidden = false;
-    photoBrowser.isGoingToPopBackWithAnimated = true;
-    photoBrowser.isNeedVideoDismissButton = false; // is Need dismiss Button in Video player, default is true
+//    photoBrowser.isGoingToPush = true;
+//    photoBrowser.sourceVcNavigationBarHidden = false;
+//    photoBrowser.isGoingToPopBackWithAnimated = true;
+//    photoBrowser.isNeedVideoDismissButton = false; // is Need dismiss Button in Video player, default is true
     
     photoBrowser.delegate = self;
     photoBrowser.itemsArr = [self.itemsArr copy];
     photoBrowser.placeHolderColor = UIColor.lightTextColor;
     photoBrowser.currentIndex = tap.view.tag;
-    photoBrowser.isSoloAmbient = true;
+//    photoBrowser.isSoloAmbient = true;
     photoBrowser.isNeedPageNumView = true;
     photoBrowser.isNeedRightTopBtn = true;
     photoBrowser.isNeedLongPress = true;
@@ -215,7 +215,7 @@
 ///   - index: index
 - (void)photoBrowser:(KNPhotoBrowser *)photoBrowser imageSingleTapWithIndex:(NSInteger)index {
     
-    [photoBrowser showStatusBarWhenPop];
+//    [photoBrowser showStatusBarWhenPop];
     
     // if you really want set a button to popback, you need create custom view , see "CustomViewController"
     [photoBrowser.navigationController popViewControllerAnimated:true];
