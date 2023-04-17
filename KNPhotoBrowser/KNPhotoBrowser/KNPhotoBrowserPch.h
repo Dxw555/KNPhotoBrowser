@@ -20,19 +20,11 @@
     #define ScreenHeight [UIScreen mainScreen].bounds.size.height
 #endif
 
-#ifndef PBViewWidth
-    #define PBViewWidth  self.view.bounds.size.width
-#endif
-
-#ifndef PBViewHeight
-    #define PBViewHeight self.view.bounds.size.height
-#endif
-
 #define PBDeviceHasBang \
 ({\
     BOOL hasBang = false;\
     if (@available(iOS 11.0, *)) {\
-        hasBang = [UIApplication sharedApplication].keyWindow.safeAreaInsets.bottom;\
+        hasBang = [UIApplication sharedApplication].delegate.window.safeAreaInsets.bottom;\
     }\
     (hasBang);\
 })

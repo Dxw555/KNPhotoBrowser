@@ -8,7 +8,6 @@
 
 #import "KNPhotoAVPlayerActionView.h"
 #import "KNPhotoBrowserPch.h"
-#import <objc/runtime.h>
 
 @interface KNPhotoAVPlayerActionView()
 
@@ -29,9 +28,7 @@
 
 @end
 
-@implementation KNPhotoAVPlayerActionView {
-    BOOL _isTempDismissImgViewHidden;
-}
+@implementation KNPhotoAVPlayerActionView
 
 - (UIActivityIndicatorView *)indicatorView{
     if (!_indicatorView) {
@@ -51,35 +48,22 @@
 }
 
 - (void)setupSubViews{
-    
-    NSBundle *bundle = [NSBundle bundleForClass:NSClassFromString(@"KNPhotoBrowser")];
-    
     // 1.stop || play imageView
     UIImageView *pauseImgView = [[UIImageView alloc] init];
     [pauseImgView setUserInteractionEnabled:true];
     [pauseImgView addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(pauseImageViewDidClick)]];
-    if(UIScreen.mainScreen.scale < 3) {
-        [pauseImgView setImage:[UIImage imageNamed:@"KNPhotoBrowser.bundle/playCenter@2x" inBundle:bundle compatibleWithTraitCollection:nil]];
-    }else {
-        [pauseImgView setImage:[UIImage imageNamed:@"KNPhotoBrowser.bundle/playCenter@3x" inBundle:bundle compatibleWithTraitCollection:nil]];
-    }
+    [pauseImgView setImage:[UIImage imageNamed:@"KNPhotoBrowser.bundle/playCenter"]];
     [self addSubview:pauseImgView];
     _pauseImgView = pauseImgView;
     
     // 2.dismiss imageView
-    UIImageView *dismissImgView = [[UIImageView alloc] init];
-    [dismissImgView setUserInteractionEnabled:true];
-    [dismissImgView addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dismissImageViewDidClick)]];
-    if(UIScreen.mainScreen.scale < 3) {
-        [dismissImgView setImage:[UIImage imageNamed:@"KNPhotoBrowser.bundle/dismiss@2x" inBundle:bundle compatibleWithTraitCollection:nil]];
-    }else {
-        [dismissImgView setImage:[UIImage imageNamed:@"KNPhotoBrowser.bundle/dismiss@3x" inBundle:bundle compatibleWithTraitCollection:nil]];
-    }
-    [dismissImgView setHidden:true];
-    [self addSubview:dismissImgView];
-    _dismissImgView = dismissImgView;
-    
-    _isTempDismissImgViewHidden = true;
+    UIImageView *dismissImageView = [[UIImageView alloc] init];
+    [dismissImageView setUserInteractionEnabled:true];
+    [dismissImageView setImage:[UIImage imageNamed:@"KNPhotoBrowser.bundle/dismiss"]];
+    [dismissImageView addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dismissImageViewDidClick)]];
+    [dismissImageView setHidden:true];
+    [self addSubview:dismissImageView];
+    _dismissImgView = dismissImageView;
     
     // 3.loading imageView
     [self addSubview:self.indicatorView];
@@ -124,12 +108,10 @@
 
 - (void)actionViewDidClick{
     
-    _isTempDismissImgViewHidden = !_isTempDismissImgViewHidden;
-    
-    if(_isNeedVideoDismissButton) { [_dismissImgView setHidden:!_dismissImgView.hidden]; }
+    [_dismissImgView setHidden:!_dismissImgView.hidden];
     
     if ([_delegate respondsToSelector:@selector(photoAVPlayerActionViewDidClickIsHidden:)]) {
-        [_delegate photoAVPlayerActionViewDidClickIsHidden:_isTempDismissImgViewHidden];
+        [_delegate photoAVPlayerActionViewDidClickIsHidden:_dismissImgView.isHidden];
     }
 }
 
@@ -138,19 +120,12 @@
  */
 - (void)avplayerActionViewNeedHidden:(BOOL)isHidden{
     if (isHidden == true) {
-        _isTempDismissImgViewHidden = true;
-        if (_isNeedVideoDismissButton) { [_dismissImgView setHidden:true]; }
+        [_dismissImgView setHidden:true];
         [_indicatorView setHidden:true];
         [_pauseImgView setHidden:true];
     }else {
         [_pauseImgView setHidden:false];
     }
-}
-/**
- is need to hidden PauseImgView
- */
-- (void)photoAVPlayerActionViewNeedHiddenPauseImgView:(BOOL)isHidden{
-    [_pauseImgView setHidden:isHidden];
 }
 
 - (void)setIsBuffering:(BOOL)isBuffering{
@@ -170,11 +145,6 @@
 - (void)setIsDownloading:(BOOL)isDownloading{
     _isDownloading = isDownloading;
     [_pauseImgView setHidden:isDownloading];
-}
-
-- (void)setIsNeedVideoDismissButton:(BOOL)isNeedVideoDismissButton {
-    _isNeedVideoDismissButton = isNeedVideoDismissButton;
-    if (isNeedVideoDismissButton == false) { [_dismissImgView setHidden:true];}
 }
 
 @end

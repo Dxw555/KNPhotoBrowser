@@ -15,10 +15,8 @@
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
 #import "KNActionSheet.h"
-#import "KNPhotoBrowserConfig.h"
 
 @class KNPhotoBrowser;
-@class KNPhotoAVPlayerActionBar;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -126,11 +124,6 @@ typedef NS_ENUM(NSInteger, KNPhotoDownloadState) {
 /// @param index current index
 - (void)photoBrowser:(KNPhotoBrowser *)photoBrowser imageLongPressWithIndex:(NSInteger)index;
 
-/// photoBrowser image single tp with currentIndex
-/// @param photoBrowser photoBrowser
-/// @param index current index
-- (void)photoBrowser:(KNPhotoBrowser *)photoBrowser imageSingleTapWithIndex:(NSInteger)index;
-
 /// photoBrowser remove image or video source with relative index
 /// @param photoBrowser browser
 /// @param relativeIndex relative index
@@ -151,10 +144,6 @@ typedef NS_ENUM(NSInteger, KNPhotoDownloadState) {
 /// @param longPress gesture Recognize
 /// @param index current index
 - (void)photoBrowser:(KNPhotoBrowser *)photoBrowser videoLongPress:(UILongPressGestureRecognizer *)longPress index:(NSInteger)index;
-
-/// custom Action Bar
-/// @param photoBrowser photoBrowser
-- (KNPhotoAVPlayerActionBar *)photoBrowserCustomActionBar:(KNPhotoBrowser *)photoBrowser;
 
 /// download image or video  success or failure or failure reason call back. [If video player is download by auto, it can use delegate. it is only use function `removeImageOrVideoOnPhotoBrowser` can use this delegate]
 /// @param photoBrowser photoBrowser
@@ -195,23 +184,11 @@ typedef NS_ENUM(NSInteger, KNPhotoDownloadState) {
 /// when source image && image && video is not ready,  create one image with color to holder, default is UIColor.clear
 @property (nonatomic,strong) UIColor *placeHolderColor;
 
-/// will going to push photoBrower, default is `false`, when it's true, all animation will disappear
-@property (nonatomic,assign) BOOL isGoingToPush;
-
-/// when need to push photoBrowser, at it pop back, tell me is need animated, default is true
-@property (nonatomic,assign) BOOL isGoingToPopBackWithAnimated;
-
-/// will going to push photoBrower, you should tell me the source viewcontroller's navigationBar is hidden or not, default is `false`
-@property (nonatomic,assign) BOOL sourceVcNavigationBarHidden;
-
 /// is or not need pageNumView , default is false
 @property (nonatomic,assign) BOOL isNeedPageNumView;
 
 /// is or not need pageControl , default is false (but if photobrowser contain video,then hidden)
 @property (nonatomic,assign) BOOL isNeedPageControl;
-
-/// is or not need pageControl has target to change value , default is false (it is based on `isNeedPageControl`)
-@property (nonatomic,assign) BOOL isNeedPageControlTarget;
 
 /// is or not need RightTopBtn , default is false
 @property (nonatomic,assign) BOOL isNeedRightTopBtn;
@@ -233,17 +210,11 @@ typedef NS_ENUM(NSInteger, KNPhotoDownloadState) {
 /// is or not need online play video, default is false [That means auto download video first]
 @property (nonatomic,assign) BOOL isNeedOnlinePlay;
 
-/// is or not solo ambient, default is true `AVAudioSessionCategorySoloAmbient`. If set false ,that will be `AVAudioSessionCategoryAmbient`
-@property (nonatomic,assign) BOOL isSoloAmbient;
-
 /// the `numView` & `pageControl` & `operationBtn` is or not need follow photoBrowser , default is false.
 /// when touch photoBrowser, they will be hidden.
 /// when you cancel, they will be showed.
 /// when dismiss the photoBrowser immediately, they will be hidden immediately.
 @property (nonatomic,assign) BOOL isNeedFollowAnimated;
-
-/// the video player has leftTop's dismiss button, touch this button, photoBrowser will dismiss or popback, default is true
-@property (nonatomic, assign) BOOL isNeedVideoDismissButton;
 
 /// remove current image or video on photobrowser
 - (void)removeImageOrVideoOnPhotoBrowser;
@@ -255,29 +226,17 @@ typedef NS_ENUM(NSInteger, KNPhotoDownloadState) {
 - (void)setImmediatelyPlayerRate:(CGFloat)rate;
 
 /**
-you can use the next function, use the `- (void)createOverlayViewArrOnTopView: animated: followAnimated:`
+create custom view on the topView(photoBrowser controller's view)
+for example: create a scrollView on the photoBrowser controller's view, when photoBrowser has scrolled , you can use delegate's function to do something you want
+delegate's function: 'photoBrowser:scrollToLocateWithIndex:(NSInteger)index'
+'CustomViewController' in Demo, you can see it how to use
+@param customViewArr customViewArr
+@param animated need animated or not, with photoBrowser present
+@param followAnimated need animated or not for follow photoBrowser
 */
 - (void)createCustomViewArrOnTopView:(NSArray<UIView *> *)customViewArr
                             animated:(BOOL)animated
                       followAnimated:(BOOL)followAnimated;
-
-/**
-create overlay view on the topView(photoBrowser controller's view)
-for example: create a scrollView on the photoBrowser controller's view, when photoBrowser has scrolled , you can use delegate's function to do something you want
-delegate's function: 'photoBrowser:scrollToLocateWithIndex:(NSInteger)index'
-'CustomViewController' in Demo, you can see it how to use
-@param overlayViewArr overlayViewArr
-@param animated need animated or not, with photoBrowser present
-@param followAnimated need animated or not for follow photoBrowser
-*/
-- (void)createOverlayViewArrOnTopView:(NSArray<UIView *> *)overlayViewArr
-                             animated:(BOOL)animated
-                       followAnimated:(BOOL)followAnimated;
-
-
-/// reload Data source when change self.itemsArr
-/// @param currentIndex you should reset `currentIndex`
-- (void)reloadDataWithCurrentIndex:(NSInteger)currentIndex;
 
 /// photoBrowser will present.
 /// if `which is already presenting`, use the `- (void)present:(UIViewController *)controller` to instead
@@ -297,9 +256,10 @@ delegate's function: 'photoBrowser:scrollToLocateWithIndex:(NSInteger)index'
 /// photoBrowser dismiss
 - (void)dismiss;
 
-/// extension function to show status Bar
-- (void)showStatusBarWhenPop;
-
+/// photoBrowser dismiss
+- (void)reloadBrowserData;
+/// photoBrowser scroll to index
+- (void)scrollToIndex:(NSInteger)index;
 @end
 
 NS_ASSUME_NONNULL_END

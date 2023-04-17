@@ -11,8 +11,6 @@
 #import "KNPhotoPlayerProtocol.h"
 #import "KNPhotoBrowser.h"
 
-@class KNPhotoAVPlayerActionBar;
-
 NS_ASSUME_NONNULL_BEGIN
 
 @interface KNPhotoAVPlayerView : UIView
@@ -34,10 +32,6 @@ NS_ASSUME_NONNULL_BEGIN
 /// AVPlayer play as rate
 /// @param rate rate
 - (void)playerRate:(CGFloat)rate;
-
-/// custom actionbar
-/// @param customBar actionbar
-- (void)playerCustomActionBar:(KNPhotoAVPlayerActionBar *)customBar;
 
 /**
  * is or not need Video placeHolder
@@ -73,18 +67,6 @@ NS_ASSUME_NONNULL_BEGIN
  * if video has played ,even though one seconds : TRUE
  */
 @property (nonatomic,assign) BOOL isBeginPlayed;
-
-/**
- * default is solo ambient : TRUE `AVAudioSessionCategorySoloAmbient`
- * if set false, that will be `AVAudioSessionCategoryAmbient`
- */
-@property (nonatomic,assign) BOOL isSoloAmbient;
-
-/**
- * the video player has leftTop's dismiss button
- * touch this button, photoBrowser will dismiss or popback, default is true
- */
-@property (nonatomic,assign) BOOL isNeedVideoDismissButton;
 
 /**
  * delegate

@@ -21,11 +21,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)photoAVPlayerActionBarClickWithIsPlay:(BOOL)isNeedPlay;
 
 /**
- actionBar begin to move
- */
-- (void)photoAVPlayerActionBarBeginChange;
-
-/**
  actionBar value has changed by slider
  
  @param value value

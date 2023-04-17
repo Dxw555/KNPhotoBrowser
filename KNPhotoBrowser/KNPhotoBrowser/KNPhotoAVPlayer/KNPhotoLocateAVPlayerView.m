@@ -27,10 +27,10 @@
 @property (nonatomic,strong) id timeObserver;
 
 @property (nonatomic,assign) BOOL isPlaying;
+@property (nonatomic,assign) BOOL isGetAllPlayItem;
 @property (nonatomic,assign) BOOL isDragging;
 @property (nonatomic,assign) BOOL isEnterBackground;
 @property (nonatomic,assign) BOOL isAddObserver;
-@property (nonatomic,assign) BOOL videoIsSwiping; // current video player is swiping?
 
 @property (nonatomic,strong) KNPhotoDownloadMgr *downloadMgr;
 @property (nonatomic,strong) KNPhotoItems *photoItems;
@@ -38,9 +38,8 @@
 @property (nonatomic,copy  ) PhotoDownLoadBlock downloadBlock;
 @end
 
-@implementation KNPhotoLocateAVPlayerView {
-    float _allDuration;
-}
+@implementation KNPhotoLocateAVPlayerView
+
 
 - (KNPhotoAVPlayerActionView *)actionView{
     if (!_actionView) {
@@ -96,18 +95,14 @@
         [self addSubview:self.playerBgView];
         [self addSubview:self.actionView];
         [self addSubview:self.actionBar];
-        BOOL isNeedCustomActionBar = [KNPhotoBrowserConfig share].isNeedCustomActionBar;
-        if (isNeedCustomActionBar == false) {
-            [self addSubview:self.actionBar];
-        }
+        
         _downloadBlock = nil;
+        
     }
     return self;
 }
 
 - (void)playerLocatePhotoItems:(KNPhotoItems *)photoItems progressHUD:(KNProgressHUD *)progressHUD placeHolder:(UIImage *_Nullable)placeHolder{
-    
-    _allDuration = 0.0;
     
     [self cancelDownloadMgrTask];
     
@@ -159,35 +154,17 @@
     _player.rate = 1.0;
     
     [_player pause];
-}
-
-- (void)playerCustomActionBar:(KNPhotoAVPlayerActionBar *)customBar {
-    BOOL isNeedCustomActionBar = [KNPhotoBrowserConfig share].isNeedCustomActionBar;
-    if (isNeedCustomActionBar == false) { return; }
-    
-    if (customBar == nil) { return; }
-    
-    [_actionBar removeFromSuperview];
-    _actionBar = customBar;
-    _actionBar.delegate = self;
-    _actionBar.isPlaying = false;
-    _actionBar.hidden = true;
-    _actionBar.allDuration = CMTimeGetSeconds(_player.currentItem.duration);
-    _actionBar.currentTime = _allDuration;
-    [self addSubview:_actionBar];
-    
-    [self layoutSubviews];
+    __weak typeof(self) weakself = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        weakself.placeHolderImgView.hidden = NO;
+    });
 }
 
 - (void)addObserverAndAudioSession{
     // AudioSession setting
     AVAudioSession *session = [AVAudioSession sharedInstance];
     [session setActive:true error:nil];
-    if(_isSoloAmbient == true) {
-        [session setCategory:AVAudioSessionCategorySoloAmbient error:nil];
-    }else {
-        [session setCategory:AVAudioSessionCategoryAmbient error:nil];
-    }
+    [session setCategory:AVAudioSessionCategorySoloAmbient error:nil];
     
     // Notification
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillResignActive) name:UIApplicationWillResignActiveNotification object:nil];
@@ -225,9 +202,11 @@
             }
             strongself.actionBar.currentTime = 0;
         }else{
-            if (strongself.isDragging == false) {
-                strongself.actionBar.currentTime = CMTimeGetSeconds(time);
+            if (strongself.isDragging == true) {
+                strongself.isDragging = false;
+                return;
             }
+            strongself.actionBar.currentTime = CMTimeGetSeconds(time);
         }
     }];
     
@@ -251,6 +230,7 @@
 }
 
 - (void)videoDidPlayToEndTime{
+    _isGetAllPlayItem = false;
     _isPlaying = false;
     if (_player) {
         __weak typeof(self) weakself = self;
@@ -260,7 +240,6 @@
                     weakself.actionBar.currentTime = 0;
                     weakself.actionBar.isPlaying = false;
                     weakself.actionView.isPlaying = false;
-                    [weakself.actionView avplayerActionViewNeedHidden:weakself.videoIsSwiping];
                 }
             }];
         }
@@ -279,9 +258,10 @@
         }
         _actionView.isBuffering = false;
     }else if ([keyPath isEqualToString:@"loadedTimeRanges"]) { // buffering
-        float duration = CMTimeGetSeconds(_player.currentItem.duration);
-        _actionBar.allDuration = duration;
-        _allDuration = duration;
+        if (!_isGetAllPlayItem) {
+            _isGetAllPlayItem = true;
+            _actionBar.allDuration = CMTimeGetSeconds(_player.currentItem.duration);
+        }
         _actionView.isBuffering = false;
     } else {
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
@@ -299,10 +279,12 @@
     [_actionView avplayerActionViewNeedHidden:true];
     _actionBar.hidden = true;
     _progressHUD.hidden = true;
-    _videoIsSwiping = true;
 }
 /// AVPlayer will cancel swipe
 - (void)playerWillSwipeCancel{
+    if (!_isPlaying) {
+        [_actionView avplayerActionViewNeedHidden:NO];
+    }
     KNPhotoDownloadFileMgr *fileMgr = [[KNPhotoDownloadFileMgr alloc] init];
     if ([self.photoItems.url hasPrefix:@"http"]) {
         if ([fileMgr startCheckIsExistVideo:self.photoItems] == false && _progressHUD.progress != 1.0) {
@@ -314,10 +296,6 @@
         }
     }else {
         _progressHUD.hidden = true;
-    }
-    _videoIsSwiping = false;
-    if (_actionBar.currentTime == 0) {
-        [_actionView avplayerActionViewNeedHidden:false];
     }
 }
 - (void)playerRate:(CGFloat)rate{
@@ -347,10 +325,7 @@
     _isNeedVideoPlaceHolder = isNeedVideoPlaceHolder;
     self.placeHolderImgView.hidden = !isNeedVideoPlaceHolder;
 }
-- (void)setIsNeedVideoDismissButton:(BOOL)isNeedVideoDismissButton {
-    _isNeedVideoDismissButton = isNeedVideoDismissButton;
-    _actionView.isNeedVideoDismissButton = isNeedVideoDismissButton;
-}
+
 - (void)photoAVPlayerActionViewDidLongPress:(UILongPressGestureRecognizer *)longPress{
     if (_isPlaying == false) {
         return;
@@ -440,17 +415,10 @@
         _isPlaying = false;
     }
 }
-- (void)photoAVPlayerActionBarBeginChange{
-    _isDragging = true;
-}
 - (void)photoAVPlayerActionBarChangeValue:(float)value{
-    __weak typeof(self) weakself = self;
-    [_player seekToTime:CMTimeMake(value, 1) toleranceBefore:CMTimeMake(1, 1000) toleranceAfter:CMTimeMake(1, 1000) completionHandler:^(BOOL finished) {
-        if (finished == true) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                weakself.isDragging = false;
-            });
-        }
+    _isDragging = true;
+    [_player seekToTime:CMTimeMake(value, 1) completionHandler:^(BOOL finished) {
+        
     }];
 }
 

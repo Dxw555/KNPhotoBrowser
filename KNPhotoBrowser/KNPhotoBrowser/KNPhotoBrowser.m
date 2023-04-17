@@ -41,7 +41,6 @@
     NSInteger                   _page; // current page
     BOOL                        _isShowed; // is showed?
     BOOL                        _statusBarHidden;// record original status bar is hidden or not
-    BOOL                        _currentBarHidden;
     BOOL                        _isDismissed; // when photoBrowser will dismiss , it will be true, default is false
 }
 
@@ -73,13 +72,7 @@
         self.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
         self.modalPresentationStyle = UIModalPresentationCustom;
         _statusBarHidden = [UIApplication sharedApplication].statusBarHidden;
-        _currentBarHidden = false;
         
-        [KNPhotoBrowserConfig share].isNeedCustomActionBar = false;
-        
-        self.isNeedVideoDismissButton       = true;
-        self.isGoingToPopBackWithAnimated   = true;
-        self.isSoloAmbient                  = true;
         self.animatedMode  = UIViewContentModeScaleToFill;
         self.presentedMode = UIViewContentModeScaleAspectFit;
     }
@@ -94,14 +87,13 @@
     return UIInterfaceOrientationMaskAllButUpsideDown;
 }
 
-- (void)hiddenStatusBar {
+- (BOOL)prefersStatusBarHidden{
+    return _statusBarHidden;
+}
+
+- (void)hiddenStatusBar{
     if (@available(iOS 13.0, *)) {
-        if (!_statusBarHidden) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            [[UIApplication sharedApplication] setStatusBarHidden:true animated:true];
-#pragma clang diagnostic pop
-        }
+        
     } else {
         UIView *statusBar = [[UIApplication sharedApplication] valueForKey:@"statusBar"];
         [UIView animateWithDuration:0.15 animations:^{
@@ -109,7 +101,8 @@
         }];
     }
 }
-- (void)showStatusBar {
+
+- (void)showStatusBar{
     if (@available(iOS 13.0, *)) {
         
     } else {
@@ -119,22 +112,6 @@
         }];
     }
 }
-- (void)showStatusBarOniOS13 {
-    if (@available(iOS 13.0, *)) {
-        if (!_statusBarHidden) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            [[UIApplication sharedApplication] setStatusBarHidden:false animated:false];
-#pragma clang diagnostic pop          
-        }
-    }
-}
-
-/// when photoBrowser will pop back, show statusBar by handler
-- (void)showStatusBarWhenPop {
-    [self showStatusBar];
-    [self showStatusBarOniOS13];
-}
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -143,7 +120,6 @@
     
     self.view.backgroundColor = [UIColor blackColor];
     
-    [self initItemsArrJudge];
     [self prefetchImage];
     [self initCollectionView];
     [self initNumView];
@@ -155,7 +131,7 @@
         _collectionView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     }
     
-    if(self.isNeedPanGesture && self.isGoingToPush == false){
+    if(self.isNeedPanGesture){
         [self.view addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(panDidGesture:)]];
     }
     
@@ -168,15 +144,18 @@
                                                  name:UIApplicationDidChangeStatusBarOrientationNotification
                                                object:nil];
 }
-- (void)viewWillAppear:(BOOL)animated{
-    [super viewWillAppear:animated];
-    [self.navigationController setNavigationBarHidden:true animated:false];
-}
-- (void)viewWillDisappear:(BOOL)animated{
-    [super viewWillDisappear:animated];
-    [self.navigationController setNavigationBarHidden:_sourceVcNavigationBarHidden animated:false];
-}
 
+-(void)reloadBrowserData{
+    [self.collectionView reloadData];
+}
+/// photoBrowser scroll to index
+- (void)scrollToIndex:(NSInteger)index{
+    _currentIndex = index;
+    [_pageControl setCurrentPage:_currentIndex];
+    [_pageControl setNumberOfPages:_itemsArr.count];
+    [_numView setCurrentNum:(_currentIndex) totalNum:_itemsArr.count];
+    [self.collectionView scrollToItemAtIndexPath:[NSIndexPath indexPathForItem:_currentIndex inSection:0] atScrollPosition:UICollectionViewScrollPositionCenteredVertically animated:NO];
+}
 /* prefetch 8 images with SDWebImagePrefetcher */
 - (void)prefetchImage{
     if(self.isNeedPrefetch == false) return;
@@ -209,15 +188,7 @@
         [[SDWebImagePrefetcher sharedImagePrefetcher] prefetchURLs:urlArr];
     }
 }
-/* dataSource compare with currentIndex */
-- (void)initItemsArrJudge{
-    if (_itemsArr.count == 0) {
-        NSAssert(false, @"com.LuKane.test.KNPhotoBrowser `itemsArr` can not be empty");
-    }
-    if (_itemsArr.count < _currentIndex + 1) {
-        NSAssert(false, @"com.LuKane.test.KNPhotoBrowser `currentIndex` is out of `itemsArr` bounds");
-    }
-}
+
 /* init collectionView */
 - (void)initCollectionView{
     
@@ -272,11 +243,6 @@
 /* init PageControl */
 - (void)initPageControl{
     UIPageControl *pageControl = [[UIPageControl alloc] init];
-    pageControl.userInteractionEnabled = false;
-    if (_isNeedPageControlTarget == true) {
-        pageControl.userInteractionEnabled = true;
-        [pageControl addTarget:self action:@selector(pageControlValueChange:) forControlEvents:UIControlEventValueChanged];        
-    } 
     [pageControl setCurrentPage:_currentIndex];
     [pageControl setNumberOfPages:_itemsArr.count];
     [pageControl setHidden:!_isNeedPageControl];
@@ -313,19 +279,12 @@
 
 /* init right top Btn */
 - (void)initOperationView{
-    
-    NSBundle *bundle = [NSBundle bundleForClass:NSClassFromString(@"KNPhotoBrowser")];
-    
     UIButton *operationBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     [operationBtn.layer setCornerRadius:3];
-    [operationBtn setClipsToBounds:true];
+    [operationBtn.layer setMasksToBounds:true];
     [operationBtn setBackgroundColor:[UIColor blackColor]];
     [operationBtn setAlpha:0.4];
-    if(UIScreen.mainScreen.scale < 3) {
-        [operationBtn setBackgroundImage:[UIImage imageNamed:@"KNPhotoBrowser.bundle/more_tap@2x.png" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
-    }else {
-        [operationBtn setBackgroundImage:[UIImage imageNamed:@"KNPhotoBrowser.bundle/more_tap@3x.png" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
-    }
+    [operationBtn setBackgroundImage:[UIImage imageNamed:@"KNPhotoBrowser.bundle/more_tap@2x.png"] forState:UIControlStateNormal];
     [operationBtn addTarget:self action:@selector(operationBtnIBAction) forControlEvents:UIControlEventTouchUpInside];
     [operationBtn setHidden:!_isNeedRightTopBtn];
     _operationBtn = operationBtn;
@@ -345,12 +304,7 @@
         KNPhotoImageCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"KNPhotoImageCellID" forIndexPath:indexPath];
         __weak typeof(self) weakSelf = self;
         cell.singleTap = ^{
-            if ([weakSelf.delegate respondsToSelector:@selector(photoBrowser:imageSingleTapWithIndex:)]) {
-                [weakSelf.delegate photoBrowser:weakSelf imageSingleTapWithIndex:weakSelf.currentIndex];
-            }
-            if (weakSelf.isGoingToPush == false){
-                [weakSelf dismiss];                
-            }
+            [weakSelf dismiss];
         };
         cell.longPressTap = ^{
             [weakSelf longPressIBAction];
@@ -370,14 +324,13 @@
         }
         
         KNPhotoVideoCell *videoCell = (KNPhotoVideoCell *)cell;
-        videoCell.isSoloAmbient = _isSoloAmbient;
-        videoCell.isNeedVideoDismissButton = _isNeedVideoDismissButton;
         
         if (_isNeedOnlinePlay) {
             [videoCell playerOnLinePhotoItems:item placeHolder:tempView.image];
         }else {
             [videoCell playerLocatePhotoItems:item placeHolder:tempView.image];
         }
+        
         if (_isNeedAutoPlay == true) {
             [videoCell setIsNeedAutoPlay:true];
         }
@@ -426,9 +379,6 @@
  * video will dismiss with animate
  */
 - (void)photoVideoAVPlayerDismiss{
-    if(_isGoingToPush == true) {
-        [self.navigationController popViewControllerAnimated:_isGoingToPopBackWithAnimated];
-    }
     [self dismiss];
 }
 
@@ -440,13 +390,6 @@
     if ([_delegate respondsToSelector:@selector(photoBrowser:videoLongPress:index:)]) {
         [_delegate photoBrowser:self videoLongPress:longPress index:_currentIndex];
     }
-}
-
-- (KNPhotoAVPlayerActionBar *)photoVideoAVPlayerCustomActionBar {
-    if ([self.delegate respondsToSelector:@selector(photoBrowserCustomActionBar:)]) {
-        return [self.delegate photoBrowserCustomActionBar:self];
-    }
-    return nil;
 }
 
 /**
@@ -490,28 +433,21 @@
     
     switch (pan.state) {
         case UIGestureRecognizerStateBegan:{
-            
-            /// show status bar
-            [self showStatusBarOniOS13];
-            [self showStatusBar];
-            
             _startLocation  = location;
             if(items.isVideo){
                 if (_isNeedOnlinePlay) {
                     _startFrame = [(KNPhotoAVPlayerView *)playerView playerBgView].frame;
                     [(KNPhotoAVPlayerView *)playerView setIsNeedVideoPlaceHolder:![(KNPhotoAVPlayerView *)playerView isBeginPlayed]];
-                    [[(KNPhotoAVPlayerView *)playerView playerView] setBackgroundColor:UIColor.clearColor];
                 }else {
                     _startFrame = [(KNPhotoLocateAVPlayerView *)playerView playerBgView].frame;
                     [(KNPhotoLocateAVPlayerView *)playerView setIsNeedVideoPlaceHolder:![(KNPhotoLocateAVPlayerView *)playerView isBeginPlayed]];
-                    [[(KNPhotoLocateAVPlayerView *)playerView playerView] setBackgroundColor:UIColor.clearColor];
                 }
+                
                 [playerView playerWillSwipe];
             }else{
                 _startFrame = imageView.imageView.frame;
             }
             [self customViewSubViewsWillDismiss];
-            [playerView setIsNeedVideoPlaceHolder:false];
         }
             break;
         case UIGestureRecognizerStateChanged:{
@@ -560,23 +496,12 @@
                     [self cancelVideoDownload];
                     [playerView setIsNeedVideoPlaceHolder:true];
                     [self dismiss];
-                    [[(KNPhotoLocateAVPlayerView *)playerView playerView] setBackgroundColor:UIColor.clearColor];
                 }else{
-                    
-                    /// hidden status bar
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                        [self hiddenStatusBar];
-                    });
-                    
                     // cancel
                     [self cancelVideoAnimation:playerView];
                     [self customViewSubViewsWillShow];
+                    [playerView setIsNeedVideoPlaceHolder:true];
                     [playerView playerWillSwipeCancel];
-                    
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(PhotoBrowserAnimateTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                        [[(KNPhotoLocateAVPlayerView *)playerView playerView] setBackgroundColor:UIColor.blackColor];
-                        [playerView setIsNeedVideoPlaceHolder:true];
-                    });
                 }
             }else {
                 if(fabs(point.y) > 200 || fabs(velocity.y) > 500){
@@ -584,11 +509,6 @@
                     _startFrame = imageView.imageView.frame;
                     [self dismiss];
                 }else{
-                    /// hidden status bar
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                        [self hiddenStatusBar];
-                    });
-                    
                     // cancel
                     [self cancelAnimation:imageView.imageView];
                     [self customViewSubViewsWillShow];
@@ -650,58 +570,12 @@
     }];
 }
 
-/// reload Data source when change self.itemsArr
-/// @param currentIndex you should reset `currentIndex`
-- (void)reloadDataWithCurrentIndex:(NSInteger)currentIndex {
-    if (_itemsArr.count == 0) {
-        [_collectionView setHidden:true];
-        [_operationBtn setHidden:true];
-        [_pageControl setHidden:true];
-        [_numView setHidden:true];
-        [self setNeedsStatusBarAppearanceUpdate];
-        if (_isGoingToPush) {
-            [self.navigationController popViewControllerAnimated:true];
-        }else {
-            [self dismissViewControllerAnimated:true completion:nil];            
-        }
-        return;
-    }
-    if (currentIndex + 1 > _itemsArr.count) {
-        _currentIndex = 0;
-    }else {
-        _currentIndex = currentIndex;
-    }
-    
-    [_numView setCurrentNum:(_currentIndex + 1) totalNum:_itemsArr.count];
-    _page = [_numView currentNum];
-    
-    if(_itemsArr.count == 1){
-        [_numView setHidden:true];
-    }
-    
-    [_pageControl setCurrentPage:_currentIndex];
-    [_pageControl setNumberOfPages:_itemsArr.count];
-    
-    [_collectionView reloadData];
-    [_collectionView setContentOffset:(CGPoint){_currentIndex * _layout.itemSize.width,0} animated:false];
-}
-
 /**
  photoBrowser first show
  */
 - (void)photoBrowserWillShowWithAnimated{
-    
     // 0. catch absolute data source
     _tempArr = [NSMutableArray arrayWithArray:_itemsArr];
-    
-    if (_isGoingToPush) {
-        [_collectionView setHidden:false];
-        [_collectionView setAlpha:1];
-        [_collectionView setContentOffset:(CGPoint){_currentIndex * _layout.itemSize.width,0} animated:false];
-        _page = _currentIndex;
-        [self hiddenStatusBar];
-        return;
-    }
     
     // 1.set collectionView offset by currentIndex
     [_collectionView setContentOffset:(CGPoint){_currentIndex * _layout.itemSize.width,0} animated:false];
@@ -756,24 +630,24 @@
     CGFloat height = tempView.image.size.height;
     
     if(isPortrait == true){
-        if (width/height >= PBViewWidth / PBViewHeight) {
-            tempRectSize = (CGSize){PBViewWidth,(height * PBViewWidth / width) > PBViewHeight?PBViewHeight:(height * PBViewWidth / width)};
+        if (width/height >= ScreenWidth / ScreenHeight) {
+            tempRectSize = (CGSize){ScreenWidth,(height * ScreenWidth / width) > ScreenHeight?ScreenHeight:(height * ScreenWidth / width)};
         }else {
             if (items.isVideo == true) {
-                tempRectSize = (CGSize){width * PBViewHeight / height,PBViewHeight};
+                tempRectSize = (CGSize){width * ScreenHeight / height,ScreenHeight};
             }else {
-                tempRectSize = (CGSize){PBViewWidth,(height * PBViewWidth / width) > PBViewHeight?PBViewHeight:(height * PBViewWidth / width)};
+                tempRectSize = (CGSize){ScreenWidth,(height * ScreenWidth / width) > ScreenHeight?ScreenHeight:(height * ScreenWidth / width)};
             }
         }
     }else{
         if(width > height){
-            if(width / height > PBViewWidth / PBViewHeight){
-                tempRectSize = (CGSize){PBViewWidth,height * PBViewWidth / width};
+            if(width / height > ScreenWidth / ScreenHeight){
+                tempRectSize = (CGSize){ScreenWidth,height * ScreenWidth / width};
             }else{
-                tempRectSize = (CGSize){PBViewHeight * width / height,PBViewHeight};
+                tempRectSize = (CGSize){ScreenHeight * width / height,ScreenHeight};
             }
         }else{
-            tempRectSize = (CGSize){(width * PBViewHeight) / height,PBViewHeight};
+            tempRectSize = (CGSize){(width * ScreenHeight) / height,ScreenHeight};
         }
     }
     [_collectionView setHidden:true];
@@ -797,9 +671,6 @@
 
 #pragma mark - photoBrowser will dismiss
 - (void)dismiss{
-    /// it is from sourceViewC use push...
-    if (_isGoingToPush) { return; }
-    
     // willDismissWithIndex
     if([_delegate respondsToSelector:@selector(photoBrowser:willDismissWithIndex:)]){
         [_delegate photoBrowser:self willDismissWithIndex:_currentIndex];
@@ -830,13 +701,13 @@
                     if([[[[items.url lastPathComponent] pathExtension] lowercaseString] isEqualToString:@"gif"]){ // gif image
                         NSData *data = UIImageJPEGRepresentation([cache imageFromCacheForKey:items.url], 1.f);
                         if(data){
-                            tempView.image = [weakself imageFromGifFirstImage:data];
+                            tempView.image = [self imageFromGifFirstImage:data];
                         }
                     }else{ // normal image
                         tempView.image = [cache imageFromCacheForKey:items.url];
                     }
                 }else{
-                    tempView.image = [[weakself tempViewFromSourceViewWithCurrentIndex:weakself.currentIndex] image];
+                    tempView.image = [[self tempViewFromSourceViewWithCurrentIndex:weakself.currentIndex] image];
                 }
                 [self photoBrowserWillDismissWithAnimated:tempView items:items];
             }];
@@ -848,28 +719,37 @@
 }
 
 - (void)createCustomViewArrOnTopView:(NSArray<UIView *> *)customViewArr
-                            animated:(BOOL)animated
-                      followAnimated:(BOOL)followAnimated {
-    [self createOverlayViewArrOnTopView:customViewArr
-                               animated:animated
-                         followAnimated:followAnimated];
-}
-
-- (void)createOverlayViewArrOnTopView:(NSArray<UIView *> *)overlayViewArr
-                             animated:(BOOL)animated
-                       followAnimated:(BOOL)followAnimated{
-    if ([self isEmptyArray:overlayViewArr]) {
+                            animated:(BOOL)animated{
+    
+    if ([self isEmptyArray:customViewArr]) {
         return;
-    }
-    if (followAnimated == true) {
-        [self.followArr addObjectsFromArray:overlayViewArr];
     }
     
     if (animated == false) {
-        _customArr = [NSArray arrayWithArray:overlayViewArr];
+        _customArr = [NSArray arrayWithArray:customViewArr];
     }else{
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(PhotoBrowserAnimateTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            for (UIView *view in overlayViewArr) {
+            for (UIView *view in customViewArr) {
+                [self.view addSubview:view];
+            }
+        });
+    }
+}
+- (void)createCustomViewArrOnTopView:(NSArray<UIView *> *)customViewArr
+                            animated:(BOOL)animated
+                      followAnimated:(BOOL)followAnimated{
+    if ([self isEmptyArray:customViewArr]) {
+        return;
+    }
+    if (followAnimated == true) {
+        [self.followArr addObjectsFromArray:customViewArr];
+    }
+    
+    if (animated == false) {
+        _customArr = [NSArray arrayWithArray:customViewArr];
+    }else{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(PhotoBrowserAnimateTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            for (UIView *view in customViewArr) {
                 [self.view addSubview:view];
             }
         });
@@ -910,9 +790,6 @@
 - (void)photoBrowserWillDismissWithAnimated:(UIImageView *)tempView items:(KNPhotoItems *)items{
     [_pageControl setHidden:true];
     [_numView setHidden:true];
-    
-    /// show status bar on iOS13.0
-    [self showStatusBarOniOS13];
     
     if(tempView.image == nil){
         
@@ -967,21 +844,15 @@
         
         CGFloat width  = tempView.image.size.width;
         CGFloat height = tempView.image.size.height;
-        CGSize tempRectSize = (CGSize){PBViewWidth,(height * PBViewWidth / width) > PBViewHeight ? PBViewHeight:(height * PBViewWidth / width)};
+        CGSize tempRectSize = (CGSize){ScreenWidth,(height * ScreenWidth / width) > ScreenHeight ? ScreenHeight:(height * ScreenWidth / width)};
         
         if(isPortrait == true){
             [tempView setBounds:(CGRect){CGPointZero,{tempRectSize.width,tempRectSize.height}}];
             [tempView setCenter:[self.view center]];
-            
             if(!CGRectEqualToRect(self.startFrame, CGRectZero)){
-                if(items.isVideo == true) {
-                    tempView.frame = CGRectMake(self.startFrame.origin.x, self.startFrame.origin.y, tempRectSize.width, tempRectSize.height);
-                }else {
-                    tempView.frame = self.startFrame;
-                }
+                tempView.frame = self.startFrame;
             }
             [window addSubview:tempView];
-            
             self->_startFrame = CGRectZero;
             [self dismissViewControllerAnimated:false completion:nil];
             
@@ -1059,16 +930,17 @@
         [_delegate photoBrowserWillLayoutSubviews];
     }
 }
+
 - (void)layoutCollectionViewAndLayout{
     
-    [_layout setItemSize:(CGSize){PBViewWidth + 20,PBViewHeight}];
+    [_layout setItemSize:(CGSize){self.view.bounds.size.width + 20,self.view.bounds.size.height}];
     _layout.minimumInteritemSpacing = 0;
     _layout.minimumLineSpacing = 0;
     
-    [_collectionView setFrame:(CGRect){{-10,0},{PBViewWidth + 20,PBViewHeight}}];
+    [_collectionView setFrame:(CGRect){{-10,0},{self.view.bounds.size.width + 20,self.view.bounds.size.height}}];
     [_collectionView setCollectionViewLayout:_layout];
     
-    _imageView.frame = (CGRect){{-10,0},{PBViewWidth + 20,PBViewHeight}};
+    _imageView.frame = (CGRect){{-10,0},{self.view.bounds.size.width + 20,self.view.bounds.size.height}};
     _progressHUD.center = self.view.center;
     
     CGFloat y = 25;
@@ -1082,9 +954,9 @@
         x = 35;
     }
     
-    [_numView setFrame:(CGRect){{0,y},{PBViewWidth,25}}];
-    [_pageControl setFrame:(CGRect){{0,PBViewHeight - 50},{PBViewWidth,30}}];
-    [_operationBtn setFrame:(CGRect){{PBViewWidth - 35 - 15 - x,y},{35,20}}];
+    [_numView setFrame:(CGRect){{0,y},{ScreenWidth,25}}];
+    [_pageControl setFrame:(CGRect){{0,self.view.bounds.size.height - 50},{ScreenWidth,30}}];
+    [_operationBtn setFrame:(CGRect){{ScreenWidth - 35 - 15 - x,y},{35,20}}];
     
     if(_offsetPageIndex){
         [_collectionView setContentOffset:(CGPoint){_layout.itemSize.width * _offsetPageIndex,0} animated:false];
@@ -1095,6 +967,7 @@
         _isShowed = true;
     }
 }
+
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
     [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
     [_collectionView.collectionViewLayout invalidateLayout];
@@ -1241,11 +1114,8 @@
         if([_delegate respondsToSelector:@selector(photoBrowser:willDismissWithIndex:)]){
             [_delegate photoBrowser:self willDismissWithIndex:_currentIndex];
         }
-        if (_isGoingToPush) {
-            [self.navigationController popViewControllerAnimated:true];
-        }else {
-            [self dismissViewControllerAnimated:true completion:nil];            
-        }
+        
+        [self dismissViewControllerAnimated:true completion:nil];
     }else{
         [_pageControl setCurrentPage:_currentIndex];
         [_pageControl setNumberOfPages:_itemsArr.count];
@@ -1272,7 +1142,7 @@
             KNPhotoDownloadFileMgr *fileMgr = [[KNPhotoDownloadFileMgr alloc] init];
             if ([fileMgr startCheckIsExistVideo:items]) { // video is exist
                 NSString *filePath = [fileMgr startGetFilePath:items];
-                UISaveVideoAtPathToSavedPhotosAlbum(filePath, self, @selector(video:didFinishSavingWithError:contextInfo:), nil);
+                [self saveVideoAtPathToSavedPhotosAlbum:filePath];
             }else { // downloading
                 
                 self.downloadMgr = [[KNPhotoDownloadMgr shareInstance] init];
@@ -1280,7 +1150,7 @@
                     [self.downloadMgr downloadVideoWithPhotoItems:items downloadBlock:^(KNPhotoDownloadState downloadState, float progress) {
                         if (downloadState == KNPhotoDownloadStateSuccess) {
                             NSString *filePath = [fileMgr startGetFilePath:items];
-                            UISaveVideoAtPathToSavedPhotosAlbum(filePath, weakself, @selector(video:didFinishSavingWithError:contextInfo:), nil);
+                            [weakself saveVideoAtPathToSavedPhotosAlbum:filePath];
                         }else if (downloadState == KNPhotoDownloadStateDownloading){
                             dispatch_async(dispatch_get_main_queue(), ^{
                                 if ([weakself.delegate respondsToSelector:@selector(photoBrowser:state:progress:photoItemRelative:photoItemAbsolute:)]) {
@@ -1307,13 +1177,13 @@
                         });
                         if (downloadState == KNPhotoDownloadStateSuccess) {
                             NSString *filePath = [fileMgr startGetFilePath:items];
-                            UISaveVideoAtPathToSavedPhotosAlbum(filePath, weakself, @selector(video:didFinishSavingWithError:contextInfo:), nil);
+                            [weakself saveVideoAtPathToSavedPhotosAlbum:filePath];
                         }
                     }];
                 }
             }
         }else {
-            UISaveVideoAtPathToSavedPhotosAlbum(items.url, self, @selector(video:didFinishSavingWithError:contextInfo:), nil);
+            [self saveVideoAtPathToSavedPhotosAlbum:items.url];
         }
     }else{ // image
         if(items.url){ // net image
@@ -1383,6 +1253,12 @@
                               photoItemAbsolute:weakself.tempArr[weakself.currentIndex]];
             }
         });
+    }
+}
+// 保存视频到相册
+- (void)saveVideoAtPathToSavedPhotosAlbum:(NSString *)path {
+    if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum(path)) {
+        UISaveVideoAtPathToSavedPhotosAlbum(path, self, @selector(video:didFinishSavingWithError:contextInfo:), nil);
     }
 }
 
@@ -1540,32 +1416,22 @@
         if (items.isVideo == false) {
             if (items.url) {
                 UIColor *imageColor = self.placeHolderColor ? self.placeHolderColor : UIColor.clearColor;
-                CGSize size = CGSizeMake(PBViewWidth, PBViewWidth);
+                CGSize size = CGSizeMake(ScreenWidth, ScreenWidth);
                 imageView.image = [self createImageWithUIColor: imageColor size: size];
             }else {
-                imageView.image = [self createImageWithUIColor: UIColor.clearColor size: CGSizeMake(PBViewWidth, PBViewWidth)];
+                imageView.image = [self createImageWithUIColor: UIColor.clearColor size: CGSizeMake(ScreenWidth, ScreenWidth)];
             }
         }else {
             if (items.videoPlaceHolderImageUrl) {
                 UIColor *imageColor = self.placeHolderColor ? self.placeHolderColor : UIColor.clearColor;
-                CGSize size = CGSizeMake(PBViewWidth, PBViewWidth);
+                CGSize size = CGSizeMake(ScreenWidth, ScreenWidth);
                 imageView.image = [self createImageWithUIColor: imageColor size: size];
             }else {
-                imageView.image = [self createImageWithUIColor: UIColor.clearColor size: CGSizeMake(PBViewWidth, PBViewWidth)];
+                imageView.image = [self createImageWithUIColor: UIColor.clearColor size: CGSizeMake(ScreenWidth, ScreenWidth)];
             }
         }
     }
     return imageView;
-}
-
-
-/// pageCotrol did be selected by click 
-/// @param pageControl pageControl
-- (void)pageControlValueChange:(UIPageControl *)pageControl {
-#ifdef DEBUG
-     NSLog(@"currentPage ===> %zd", pageControl.currentPage);
-#endif
-     [_collectionView setContentOffset:(CGPoint){pageControl.currentPage * _layout.itemSize.width,0} animated: true];
 }
 
 @end

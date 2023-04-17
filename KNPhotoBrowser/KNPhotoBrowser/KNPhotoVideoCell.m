@@ -35,29 +35,19 @@
 }
 
 - (void)playerOnLinePhotoItems:(KNPhotoItems *)photoItems placeHolder:(UIImage * _Nullable)placeHolder {
-    _onlinePlayerView.isSoloAmbient = _isSoloAmbient;
     [_onlinePlayerView playerOnLinePhotoItems:photoItems placeHolder:placeHolder];
     _onlinePlayerView.hidden = false;
     _locatePlayerView.hidden = true;
     _progressHUD.hidden = true;
-    
-    if ([self.delegate respondsToSelector:@selector(photoVideoAVPlayerCustomActionBar)]) {
-        [_onlinePlayerView playerCustomActionBar:[self.delegate photoVideoAVPlayerCustomActionBar]];
-    }
 }
 - (void)playerLocatePhotoItems:(KNPhotoItems *)photoItems placeHolder:(UIImage *)placeHolder {
-    _locatePlayerView.isSoloAmbient = _isSoloAmbient;
     [_locatePlayerView playerLocatePhotoItems:photoItems progressHUD:_progressHUD placeHolder:placeHolder];
-    _locatePlayerView.hidden = false;
     _onlinePlayerView.hidden = true;
+    _locatePlayerView.hidden = false;
     _progressHUD.hidden = true;
-    
-    if ([self.delegate respondsToSelector:@selector(photoVideoAVPlayerCustomActionBar)]) {
-        [_locatePlayerView playerCustomActionBar:[self.delegate photoVideoAVPlayerCustomActionBar]];
-    }
 }
 
-- (void)setPresentedMode:(UIViewContentMode)presentedMode {
+- (void)setPresentedMode:(UIViewContentMode)presentedMode{
     _presentedMode = presentedMode;
     _onlinePlayerView.placeHolderImgView.contentMode = self.presentedMode;
     _locatePlayerView.placeHolderImgView.contentMode = self.presentedMode;
@@ -69,7 +59,7 @@
 }
 
 /// setter
-- (void)setIsNeedAutoPlay:(BOOL)isNeedAutoPlay {
+- (void)setIsNeedAutoPlay:(BOOL)isNeedAutoPlay{
     _isNeedAutoPlay = isNeedAutoPlay;
     if (isNeedAutoPlay == true) {
         if (_onlinePlayerView.isHidden == false) {
@@ -81,16 +71,10 @@
     }
 }
 /// setter
-- (void)setIsNeedVideoPlaceHolder:(BOOL)isNeedVideoPlaceHolder {
+- (void)setIsNeedVideoPlaceHolder:(BOOL)isNeedVideoPlaceHolder{
     _isNeedVideoPlaceHolder = isNeedVideoPlaceHolder;
     _onlinePlayerView.isNeedVideoPlaceHolder = isNeedVideoPlaceHolder;
     _locatePlayerView.isNeedVideoPlaceHolder = isNeedVideoPlaceHolder;
-}
-/// setter
-- (void)setIsNeedVideoDismissButton:(BOOL)isNeedVideoDismissButton {
-    _isNeedVideoDismissButton = isNeedVideoDismissButton;
-    _onlinePlayerView.isNeedVideoDismissButton = isNeedVideoDismissButton;
-    _locatePlayerView.isNeedVideoDismissButton = isNeedVideoDismissButton;
 }
 
 /// delegate function

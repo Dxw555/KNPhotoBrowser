@@ -28,11 +28,6 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)photoAVPlayerActionViewDidClickIsHidden:(BOOL)isHidden;
 
-/**
- is need to hidden PauseImgView
- */
-- (void)photoAVPlayerActionViewNeedHiddenPauseImgView:(BOOL)isHidden;
-
 @end
 
 @interface KNPhotoAVPlayerActionView : UIView
@@ -58,11 +53,6 @@ NS_ASSUME_NONNULL_BEGIN
  * current player is downloading
  */
 @property (nonatomic,assign) BOOL isDownloading;
-
-/**
- * is need leftTop dismiss button
- */
-@property (nonatomic,assign) BOOL isNeedVideoDismissButton;
 
 @end
 

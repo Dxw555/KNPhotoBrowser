@@ -25,16 +25,14 @@
 @property (nonatomic,strong) id timeObserver;
 
 @property (nonatomic,assign) BOOL isPlaying;
+@property (nonatomic,assign) BOOL isGetAllPlayItem;
 @property (nonatomic,assign) BOOL isDragging;
 @property (nonatomic,assign) BOOL isEnterBackground;
 @property (nonatomic,assign) BOOL isAddObserver;
-@property (nonatomic,assign) BOOL videoIsSwiping; // current video player is swiping?
 
 @end
 
-@implementation KNPhotoAVPlayerView {
-    float _allDuration;
-}
+@implementation KNPhotoAVPlayerView
 
 - (KNPhotoAVPlayerActionView *)actionView{
     if (!_actionView) {
@@ -66,7 +64,7 @@
 - (UIView *)playerView{
     if (!_playerView) {
         _playerView = [[UIView alloc] init];
-        _playerView.backgroundColor = UIColor.blackColor;
+        _playerView.backgroundColor = UIColor.clearColor;
     }
     return _playerView;
 }
@@ -80,6 +78,7 @@
 
 - (instancetype)initWithFrame:(CGRect)frame{
     if (self = [super initWithFrame:frame]) {
+        
         self.player = [AVPlayer playerWithPlayerItem:_item];
         self.playerLayer = [AVPlayerLayer playerLayerWithPlayer:_player];
         [self.playerView.layer addSublayer:_playerLayer];
@@ -89,17 +88,12 @@
         
         [self addSubview:self.playerBgView];
         [self addSubview:self.actionView];
-        BOOL isNeedCustomActionBar = [KNPhotoBrowserConfig share].isNeedCustomActionBar;
-        if (isNeedCustomActionBar == false) {
-            [self addSubview:self.actionBar];
-        }
+        [self addSubview:self.actionBar];
     }
     return self;
 }
 
 - (void)playerOnLinePhotoItems:(KNPhotoItems *)photoItems placeHolder:(UIImage *_Nullable)placeHolder{
-    
-    _allDuration = 0.0;
     
     [self removePlayerItemObserver];
     [self removeTimeObserver];
@@ -133,33 +127,11 @@
     [_player pause];
 }
 
-- (void)playerCustomActionBar:(KNPhotoAVPlayerActionBar *)customBar {
-    BOOL isNeedCustomActionBar = [KNPhotoBrowserConfig share].isNeedCustomActionBar;
-    if (isNeedCustomActionBar == false) { return; }
-    
-    if (customBar == nil) { return; }
-    
-    [_actionBar removeFromSuperview];
-    _actionBar = customBar;
-    _actionBar.delegate = self;
-    _actionBar.isPlaying = false;
-    _actionBar.hidden = true;
-    _actionBar.allDuration = CMTimeGetSeconds(_player.currentItem.duration);
-    _actionBar.currentTime = _allDuration;
-    [self addSubview:_actionBar];
-    
-    [self layoutSubviews];
-}
-
 - (void)addObserverAndAudioSession{
     // AudioSession setting
     AVAudioSession *session = [AVAudioSession sharedInstance];
     [session setActive:true error:nil];
-    if(_isSoloAmbient == true) {
-        [session setCategory:AVAudioSessionCategorySoloAmbient error:nil];
-    }else {
-        [session setCategory:AVAudioSessionCategoryAmbient error:nil];
-    }
+    [session setCategory:AVAudioSessionCategorySoloAmbient error:nil];
     
     // Notification
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillResignActive) name:UIApplicationWillResignActiveNotification object:nil];
@@ -174,20 +146,16 @@
 /// remove item observer
 - (void)removePlayerItemObserver{
     if (_item && _isAddObserver) {
-        [_item removeObserver:self forKeyPath:@"status"                 context:nil];
-        [_item removeObserver:self forKeyPath:@"loadedTimeRanges"       context:nil];
-        [_item removeObserver:self forKeyPath:@"playbackBufferEmpty"    context:nil];
-        [_item removeObserver:self forKeyPath:@"playbackLikelyToKeepUp" context:nil];
+        [_item removeObserver:self forKeyPath:@"status" context:nil];
+        [_item removeObserver:self forKeyPath:@"loadedTimeRanges" context:nil];
         _isAddObserver = false;
     }
 }
 /// add item observer
 - (void)addPlayerItemObserver{
     if (_item) {
-        [_item addObserver:self forKeyPath:@"status"                 options:NSKeyValueObservingOptionNew context:nil];
-        [_item addObserver:self forKeyPath:@"loadedTimeRanges"       options:NSKeyValueObservingOptionNew context:nil];
-        [_item addObserver:self forKeyPath:@"playbackBufferEmpty"    options:NSKeyValueObservingOptionNew context:nil];
-        [_item addObserver:self forKeyPath:@"playbackLikelyToKeepUp" options:NSKeyValueObservingOptionNew context:nil];
+        [_item addObserver:self forKeyPath:@"status"           options:NSKeyValueObservingOptionNew context:nil];
+        [_item addObserver:self forKeyPath:@"loadedTimeRanges" options:NSKeyValueObservingOptionNew context:nil];
         _isAddObserver = true;
     }
     
@@ -201,9 +169,11 @@
             }
             strongself.actionBar.currentTime = 0;
         }else{
-            if (strongself.isDragging == false) {
-                strongself.actionBar.currentTime = CMTimeGetSeconds(time);
+            if (strongself.isDragging == true) {
+                strongself.isDragging = false;
+                return;
             }
+            strongself.actionBar.currentTime = CMTimeGetSeconds(time);
         }
     }];
     
@@ -211,6 +181,7 @@
                                              selector:@selector(videoDidPlayToEndTime)
                                                  name:AVPlayerItemDidPlayToEndTimeNotification
                                                object:nil];
+    
 }
 
 /// remove time observer
@@ -227,6 +198,7 @@
 }
 
 - (void)videoDidPlayToEndTime{
+    _isGetAllPlayItem = false;
     _isPlaying = false;
     if (_player) {
         __weak typeof(self) weakself = self;
@@ -236,7 +208,6 @@
                     weakself.actionBar.currentTime = 0;
                     weakself.actionBar.isPlaying = false;
                     weakself.actionView.isPlaying = false;
-                    [weakself.actionView avplayerActionViewNeedHidden:weakself.videoIsSwiping];
                 }
             }];
         }
@@ -254,15 +225,9 @@
             _actionView.isBuffering = false;
         }
     }else if ([keyPath isEqualToString:@"loadedTimeRanges"]) { // buffering
-        float duration = CMTimeGetSeconds(_player.currentItem.duration);
-        _actionBar.allDuration = duration;
-        _allDuration = duration;
-    }else if ([keyPath isEqualToString:@"playbackBufferEmpty"]) { // empty
-        _actionView.isBuffering = true;
-    }else if ([keyPath isEqualToString:@"playbackLikelyToKeepUp"]) { // full
-        _actionView.isBuffering = false;
-        if (_isPlaying == true) {
-            [_player play];
+        if (!_isGetAllPlayItem) {
+            _isGetAllPlayItem = true;
+            _actionBar.allDuration = CMTimeGetSeconds(_player.currentItem.duration);
         }
     } else {
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
@@ -279,14 +244,10 @@
 - (void)playerWillSwipe{
     [_actionView avplayerActionViewNeedHidden:true];
     _actionBar.hidden = true;
-    _videoIsSwiping = true;
 }
 
 - (void)playerWillSwipeCancel {
-    _videoIsSwiping = false;
-    if (_actionBar.currentTime == 0) {
-        [_actionView avplayerActionViewNeedHidden:false];
-    }
+    
 }
 
 - (void)playerRate:(CGFloat)rate{
@@ -309,10 +270,7 @@
     _isNeedVideoPlaceHolder = isNeedVideoPlaceHolder;
     self.placeHolderImgView.hidden = !isNeedVideoPlaceHolder;
 }
-- (void)setIsNeedVideoDismissButton:(BOOL)isNeedVideoDismissButton {
-    _isNeedVideoDismissButton = isNeedVideoDismissButton;
-    _actionView.isNeedVideoDismissButton = isNeedVideoDismissButton;
-}
+
 - (void)photoAVPlayerActionViewDidLongPress:(UILongPressGestureRecognizer *)longPress{
     if (_isPlaying == false) {
         return;
@@ -337,6 +295,7 @@
         _actionView.isPlaying = false;
         _actionBar.isPlaying = false;
     }
+    
     _isPlaying = !_isPlaying;
 }
 - (void)photoAVPlayerActionViewDismiss{
@@ -360,17 +319,10 @@
         _isPlaying = false;
     }
 }
-- (void)photoAVPlayerActionBarBeginChange{
-    _isDragging = true;
-}
 - (void)photoAVPlayerActionBarChangeValue:(float)value{
-    __weak typeof(self) weakself = self;
-    [_player seekToTime:CMTimeMake(value, 1) toleranceBefore:CMTimeMake(1, 1000) toleranceAfter:CMTimeMake(1, 1000) completionHandler:^(BOOL finished) {
-        if (finished == true) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                weakself.isDragging = false;
-            });
-        }
+    _isDragging = true;
+    [_player seekToTime:CMTimeMake(value, 1) completionHandler:^(BOOL finished) {
+        
     }];
 }
 
@@ -384,9 +336,9 @@
     self.placeHolderImgView.frame  = self.playerBgView.bounds;
     
     if (PBDeviceHasBang) {
-        self.actionBar.frame = CGRectMake(15, self.frame.size.height - 70, self.frame.size.width - 30, 40);
+        self.actionBar.frame    = CGRectMake(15, self.frame.size.height - 70, self.frame.size.width - 30, 40);
     }else {
-        self.actionBar.frame = CGRectMake(15, self.frame.size.height - 50, self.frame.size.width - 30, 40);
+        self.actionBar.frame    = CGRectMake(15, self.frame.size.height - 50, self.frame.size.width - 30, 40);
     }
 }
 
